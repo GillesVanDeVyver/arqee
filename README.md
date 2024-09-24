@@ -16,14 +16,14 @@ Jupyter notebook toturials are available at
 ## Installation
 The package can be installed using pip from github:
 ```bash
-pip install TODO
+pip install https://github.com/GillesVanDeVyver/arqee.git
 ```
 Alternatively, you can download the source code and install it using pip:
 ```bash
 pip install .
 ```
 
-## Current main features
+## Main features
 
 - Calculate quality per myocardial region for apical views via end to end (black-box) model
 - Get quality measure based on gCNR per myocardial region for apical views
