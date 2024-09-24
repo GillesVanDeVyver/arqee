@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "arqee"
+version = "0.1.1"
+description = ""
+authors = ["Gilles Van De Vyver <gilles.van.de.vyver@ntnu.no>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.7"
+numpy = ">=1.0"
+onnxruntime = ">=1.14"
+requests = ">=2.0"
+tqdm = ">=4.0"
+scikit-image = ">=0.19"
+opencv-python = ">=4.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
