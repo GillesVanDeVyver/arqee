@@ -28,6 +28,8 @@ pip install .
 - Calculate quality per myocardial region for apical views via end to end (black-box) model
 - Get quality measure based on gCNR per myocardial region for apical views
 
+![tutorial/image_quality_prediction.gif](tutorial/image_quality_prediction.gif)
+
 
 
 ## Contact
