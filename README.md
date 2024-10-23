@@ -34,10 +34,14 @@ pip install .
 
 ## Contact
 
+Developer: <br />
 gillesvandevyver@hotmail.be <br />
 https://www.linkedin.com/in/gilles-van-de-vyver/
 
-Feature requests and feedback are welcome.
+Management: <br />
+lasse.lovstakken@ntnu.no <br />
+erik.smistad@ntnu.no <br />
+
 
 
 The package has been developed using python 3.10.
