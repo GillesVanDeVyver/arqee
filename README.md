@@ -35,8 +35,8 @@ pip install .
 ## Contact
 
 Developer: <br />
-gillesvandevyver@hotmail.be <br />
-https://www.linkedin.com/in/gilles-van-de-vyver/
+[https://gillesvandevyver.com/](https://gillesvandevyver.com/)
+
 
 Management: <br />
 lasse.lovstakken@ntnu.no <br />
