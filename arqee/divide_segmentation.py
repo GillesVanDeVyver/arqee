@@ -231,11 +231,35 @@ def find_epi_apex(myo_mask, baseMid, lv_apex):
             epi_apex = point
         else:
             break
+    return epi_apex
 
+def find_endo_apex(lv_mask, baseMid, epi_apex):
+    '''
+    Find the endocardial apex point, defined as the first point on the line through the epi_apex and the baseMid
+    inside the LV mask.
+    :param lv_mask: ndarray
+        numpy array of shape (height,width) containing the LV mask
+    :param baseMid:  ndarray
+        numpy array of shape (2,) containing the coordinates of middle of the base
+    :param epi_apex:  ndarray
+        numpy array of shape (2,) containing the coordinates of the apex point on the epicardium
+    :return:  ndarray
+        numpy array of shape (2,) containing the coordinates of the endocardial apex point
+    '''
+    # Find apex point on the epicardium, as intersection of the long axis (Apex-BaseMid) and the endocadrial border
+    # Get the direction of the line
+    direction = np.array([epi_apex[0] - baseMid[0], epi_apex[1] - baseMid[1]])
+    # normalize the direction
+    direction = direction / direction[0]
+    for depth in range(0, epi_apex[1]):
+        point = (epi_apex + direction * depth).astype(int)
+        if lv_mask[point[1], point[0]] > 0.5:
+            return point
     return epi_apex
 
 
-def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label, myo_label):
+
+def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label, lv_label):
     '''
     Find the base points and the apex of the left ventricle in a given segmentation
     :param segmentation: ndarray
@@ -250,6 +274,8 @@ def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label,
         label of the left atrium in the segmentation
     :param ao_label: int
         label of the aorta in the segmentation
+    :param lv_label: int
+        label of the left ventricle in the segmentation
     :return: tuple
          return (landmarks,landmark_indices),
          where
@@ -312,12 +338,16 @@ def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label,
     base_lat_index = base_indices[-1]
     # Get the apex, defined as the lv point furthest away from the mid of the la base point
     base_mid_la = la_boundary[int(len(la_boundary) / 2)]
-    apex, apex_index = find_apex(contour_lv, base_mid_la)
-    myo_mask = segmentation == myo_label
-    epi_apex = find_epi_apex(myo_mask, base_mid_la, apex)
-    epi_apex_index, epi_apex = get_closest_point(epi_apex, contour_myo)
-    landmarks = (base_sep, base_lat, apex, epi_apex)
-    landmark_indices = (base_sep_index, base_lat_index, apex_index, epi_apex_index)
+    lv_mask = segmentation == lv_label
+    # First, find the apex on the epicaardium, defined as the point the furthest from base_mid_la
+    epi_apex, epi_apex_index = find_apex(contour_myo, base_mid_la)
+    # Then, find the apex on the endocardium, defined as the first point on the line through the epi_apex and
+    # the baseMid still inside the LV mask
+    endo_apex = find_endo_apex(lv_mask, base_mid_la, epi_apex)
+    # Get the corresponding index of the apex on the contour
+    endo_apex_index, endo_apex = get_closest_point(endo_apex, contour_lv)
+    landmarks = (base_sep, base_lat, endo_apex, epi_apex)
+    landmark_indices = (base_sep_index, base_lat_index, endo_apex_index, epi_apex_index)
     return (landmarks, landmark_indices)
 
 
@@ -453,7 +483,7 @@ def divide_segmentation(segmentation,**kwargs):
 
     # STEP 1: Find landmarks of myocardium
     landmarks, landmark_indices = \
-        find_lv_landmarks(segmentation, contour_lv, outer_myo_contour, la_label, ao_label, myo_label)
+        find_lv_landmarks(segmentation, contour_lv, outer_myo_contour, la_label, ao_label, lv_label)
     (base_sep, base_lat, apex, epi_apex) = landmarks
     (base_sep_index, base_lat_index, apex_index, epi_apex_index) = landmark_indices
 
