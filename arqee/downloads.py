@@ -74,12 +74,15 @@ def get_model_download_link(model_name="mobilenetv2_regional_quality",verbose=Tr
         - 'mobilenetv2_regional_quality'
         - 'nnunet_hunt4_a2c_a4c'
         - 'nnunet_hunt4_alax'
+        - 'nnunet_CAMUS'
+        For more information, see https://huggingface.co/gillesvdv and look at the models with the corresponding names.
     :param verbose: str
         If True, print instructions to the standard output
     :return: str
         The download link for the model with the given backbone
     '''
-    supported_models = ['mobilenetv2_regional_quality', 'nnunet_hunt4_a2c_a4c', 'nnunet_hunt4_alax']
+    supported_models = ['mobilenetv2_regional_quality', 'nnunet_hunt4_a2c_a4c', 'nnunet_hunt4_alax',
+                        'nnunet_CAMUS']
     if model_name in supported_models:
         if verbose:
             print(f"Download link for model with backbone {model_name} is {CONST.DOWNLOAD_LINKS[model_name]}")
