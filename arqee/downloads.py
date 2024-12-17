@@ -82,7 +82,7 @@ def get_model_download_link(model_name="mobilenetv2_regional_quality",verbose=Tr
         The download link for the model with the given backbone
     '''
     supported_models = ['mobilenetv2_regional_quality', 'nnunet_hunt4_a2c_a4c', 'nnunet_hunt4_alax',
-                        'nnunet_CAMUS']
+                        'nnunet_camus']
     if model_name in supported_models:
         if verbose:
             print(f"Download link for model with backbone {model_name} is {CONST.DOWNLOAD_LINKS[model_name]}")
