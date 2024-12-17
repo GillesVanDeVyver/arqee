@@ -16,7 +16,7 @@ Jupyter notebook toturials are available at
 ## Installation
 The package can be installed using pip from github:
 ```bash
-pip install https://github.com/GillesVanDeVyver/arqee.git
+pip install git+https://github.com/GillesVanDeVyver/arqee.git
 ```
 Alternatively, you can download the source code and install it using pip:
 ```bash
