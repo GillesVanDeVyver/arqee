@@ -8,7 +8,8 @@ DOWNLOAD_LINKS = {
     "sample_data":"https://api.github.com/repos/GillesVanDeVyver/us_cardiac_sample_data/contents/sample_data",
     "nnunet_hunt4_alax": ("gillesvdv/nnunet_hunt4_alax","nnunet_hunt4_alax.zip"),
     "nnunet_hunt4_a2c_a4c" : ("gillesvdv/nnunet_hunt4_a2c_a4c","nnunet_hunt4_a2c_a4c.zip"),
-    "nnunet_camus": ("gillesvdv/nnunet_CAMUS_onnx","nnunet_camus.zip")
+    "nnunet_camus": ("gillesvdv/nnunet_CAMUS_onnx","nnunet_camus.zip"),
+    "GCN_camus_cv1": ("gillesvdv/GCN_camus_cv1", "GCN_camus_cv1.zip")
 }
 
 DEFAULT_SLOPE_INTERCEPTS_PIXEL_BASED_METHODS = {

@@ -109,9 +109,7 @@ def inference_img_generic(model_object, inference_input, verbose=True):
     :param verbose: bool
         If True, info and warnings will be printed
     :return: np.array
-        Inference output as np.array with either numerical or string labels
-        The output of the inference is a ndarray with size 1x8 with the quality labels in the following order:
-        basal_left,mid_left,apical_left,apical_right,mid_right,basal_right,annulus_left,annulus_right
+        Inference output as np.array
     '''
     res_batch = inference_batch_generic(model_object, inference_input, verbose)
     return res_batch[0]
@@ -192,7 +190,7 @@ def inference_recording_generic(model_object, inference_input, verbose=True):
     return np.concatenate(res)
 
 
-def load_model(model_name='mobilenetv2_regional_quality'):
+def load_model(model_name='mobilenetv2_regional_quality', **kwargs):
     '''
     Load the model with the given backbone
     :param model_name: str
@@ -208,5 +206,5 @@ def load_model(model_name='mobilenetv2_regional_quality'):
             raise ValueError('Model directory does not exist: ' + model_dir
                              + '\nPlease download and set up the model using download_model and set_up_model')
         else:
-            model_object = arqee.load_onnx_model_from_dir(model_dir)
+            model_object = arqee.load_onnx_model_from_dir(model_dir, **kwargs)
     return model_object
