@@ -6,6 +6,8 @@ import onnxruntime
 from arqee import utils
 import arqee.CONST as CONST
 from skimage.transform import resize
+from arqee import utils_graphnet
+from arqee.utils_graphnet import denormalise_kpts
 
 
 class ModelObject:
@@ -334,11 +336,32 @@ class GCNSegmentationModelObject(ModelObject):
         :return: np.array
             Post processed inference output as np.array with shape (batch_size, width, height)
         '''
-        if self.output_keypoints:
-            return inference_output
-        else:
-            # TODO
-            raise NotImplementedError('Only output_keypoints=True is supported for GCN segmentation models at the moment.')
+        result = []
+        for frame_output in inference_output:
+            # process frame by frame
+            kpts_pred,displacements = frame_output
+            displacements=displacements[0]
+            # convert displacement to epicardial contour
+            kpts_lv = kpts_pred[0, :43]
+            # also included the first annulus points (0 and 42)
+            kpts_la_part1 = np.array(kpts_pred[0, 42:64, :])
+            kpts_la_part2 = np.array(kpts_pred[:, 0, :])
+            kpts_la = np.concatenate((kpts_la_part1, kpts_la_part2),0)
+            kpts_ep = utils_graphnet.distances_to_kpts_lv(kpts_lv, displacements, as_np_array=True, transpose=False)
+
+            if self.output_keypoints:
+                graph_seg_sample = [np.array(kpts_lv), np.array(kpts_la), np.array(kpts_ep)]
+                for kpts in graph_seg_sample:
+                    denormalise_kpts(kpts, (256, 256), transpose=False)
+
+                result.append(np.array(graph_seg_sample, dtype=object))
+
+            else:
+                mask_lv, mask_la, mask_ep = utils_graphnet.keypoints_to_segmentation(256, kpts_lv, kpts_la, kpts_ep)
+                graph_seg_sample = utils_graphnet.merge_masks(mask_lv, mask_la, mask_ep)
+                result.append(graph_seg_sample)
+        result = np.asarray(result)
+        return result
 
 
 class PixelBasedModelObject(ModelObject):
