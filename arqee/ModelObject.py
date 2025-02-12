@@ -249,6 +249,7 @@ class GCNSegmentationModelObject(ModelObject):
         '''
         Pre-processing for GCN to the correct input format before inference for batches.
         Not using the generic pre_process_batch method because the GCN uses 3 channels as input
+        and the input is scaled to [0,1]
         :param inference_input: np.array
             Input data as np.array of shape (batch_size, channels, height, width
         :param verbose: bool
@@ -280,19 +281,20 @@ class GCNSegmentationModelObject(ModelObject):
             inference_input = resize(inference_input,
                                      (inference_input.shape[0], inference_input.shape[1], 256, 256),
                                      preserve_range=True)
-        # convert data to float32
-        inference_input = inference_input.astype(np.float32)
+        # convert data to float32 and scale to [0,1]
+        inference_input = inference_input.astype(np.float32)/256
         return inference_input
 
     def pre_process_recording(self,recording, verbose=True):
         '''
         pPre-processing to the correct input format before inference for recordings
         Not using the generic pre_process_recording method because the GCN uses 3 channels as input
+        and the input is scaled to [0,1]
         :param recording:
         :param verbose:
         :return:
         '''
-        return arqee.pre_process_recording_generic(recording, verbose=verbose, nb_channels=3)
+        return arqee.pre_process_recording_generic(recording, verbose=verbose, nb_channels=3)/256
 
     def pre_process_img(self, img_data, verbose=True, **kwargs):
         '''
