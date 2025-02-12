@@ -11,16 +11,22 @@ from arqee.utils_graphnet import denormalise_kpts
 
 
 class ModelObject:
-    def __init__(self, session, batch_size=32):
+    def __init__(self, session, **kwargs):
         '''
         Generic model object for onnx models
         :param session: onnxruntime.InferenceSession
             The onnx session
-        :param batch_size: int
-            The batch size to use for inference on recordings
+        :param kwargs: dict
+            Optional arguments:
+            - batch_size: int
+                The batch size to use for inference on recordings.
+                Default is 32
         '''
         self.session = session
-        self.batch_size = batch_size
+        if 'batch_size' in kwargs:
+            self.batch_size = kwargs['batch_size']
+        else:
+            self.batch_size = 32
 
     def pre_process_batch(self, inference_input, verbose=True, **kwargs):
         '''
@@ -75,9 +81,10 @@ class ModelObject:
         :param inference_output: np.array
         :return: np.array
         '''
-        nb_frames = inference_output.shape[0]
+        nb_frames = len(inference_output)
         # convert inference output to a list
-        new_inference_output = inference_output.tolist()
+        if isinstance(inference_output, np.ndarray):
+            inference_output = inference_output.tolist()
         frames_processed = 0
         if verbose:
             print("Post-processing recording inference output...")
@@ -87,13 +94,13 @@ class ModelObject:
         while frames_processed < nb_frames:
             batch_of_frames = inference_output[frames_processed:frames_processed + self.batch_size]
             post_processed_batch = self.post_process_batch(batch_of_frames, verbose=verbose, **kwargs)
-            new_inference_output[frames_processed:frames_processed + self.batch_size] = post_processed_batch
+            inference_output[frames_processed:frames_processed + self.batch_size] = post_processed_batch
             frames_processed += self.batch_size
             if verbose:
                 progress_bar.update(self.batch_size)
         if verbose:
             progress_bar.close()
-        return np.array(new_inference_output)
+        return np.array(inference_output)
 
     def inference_batch(self, batch_data, verbose=True, **kwargs):
         '''
@@ -222,7 +229,7 @@ class SegmentationModelObject(ModelObject):
         return np.argmax(inference_output, axis=1).astype(np.uint8)
 
 class GCNSegmentationModelObject(ModelObject):
-    def __init__(self, session,**kwargs):
+    def __init__(self, session, **kwargs):
         '''
         Model object containing the onnx session
         :param session: onnxruntime.InferenceSession
@@ -232,7 +239,7 @@ class GCNSegmentationModelObject(ModelObject):
             - output_keypoints: bool
                 If True, the keypoints will be not be converted to a segmentation mask
         '''
-        super().__init__(session)
+        super().__init__(session, **kwargs)
         if 'output_keypoints' in kwargs:
             self.output_keypoints = kwargs['output_keypoints']
         else:
@@ -277,6 +284,16 @@ class GCNSegmentationModelObject(ModelObject):
         inference_input = inference_input.astype(np.float32)
         return inference_input
 
+    def pre_process_recording(self,recording, verbose=True):
+        '''
+        pPre-processing to the correct input format before inference for recordings
+        Not using the generic pre_process_recording method because the GCN uses 3 channels as input
+        :param recording:
+        :param verbose:
+        :return:
+        '''
+        return arqee.pre_process_recording_generic(recording, verbose=verbose, nb_channels=3)
+
     def pre_process_img(self, img_data, verbose=True, **kwargs):
         '''
         Pre-processing to the correct input format before inference for single images.
@@ -294,7 +311,7 @@ class GCNSegmentationModelObject(ModelObject):
         inference_input = np.expand_dims(img_data, axis=0)
         return self.pre_process_batch(inference_input, verbose)
 
-    def inference_img(self, img_data, verbose=True, **kwargs):
+    def inference_batch(self, inference_input, verbose=True, **kwargs):
         '''
         Perform inference on the given image using the given onnx session.
         Not using the generic inference_img method because the GCN has multiple outputs
@@ -302,6 +319,26 @@ class GCNSegmentationModelObject(ModelObject):
             The model object containing the onnx session
             Only onnx is supported
         :param inference_input: np.array
+            Pre-processed input data as np.array of shape (channels, height, width)
+        :param verbose: bool
+            If True, info and warnings will be printed
+        :return: np.array
+            Inference output as np.array
+        '''
+        onnx_sess = self.session
+        input_name = onnx_sess.get_inputs()[0].name
+        output_names = [output.name for output in onnx_sess.get_outputs()]
+        res = onnx_sess.run(output_names, {input_name: inference_input})
+        return res
+
+    def inference_img(self, img_data, verbose=True, **kwargs):
+        '''
+        Perform inference on the given image using the given onnx session.
+        Not using the generic inference_img method because the GCN has multiple outputs
+        :param model_object: ONNXModelObject
+            The model object containing the onnx session
+            Only onnx is supported
+        :param img_data: np.array
             Pre-processed input data as np.array of shape (channels, height, width)
         :param verbose: bool
             If True, info and warnings will be printed
@@ -520,13 +557,13 @@ def load_onnx_model_from_dir(model_dir, **kwargs):
             slope_intercept_bias_correction = np.load(slope_intercept_bias_correction_loc)
         else:
             slope_intercept_bias_correction = None
-        model_object = QualityModelObject(sess, slope_intercept_bias_correction)
+        model_object = QualityModelObject(sess, slope_intercept_bias_correction, **kwargs)
     elif 'unet' in model_name:
         model_object = SegmentationModelObject(sess)
     elif 'GCN' in model_name:
         model_object = GCNSegmentationModelObject(sess, **kwargs)
     else:
-        model_object = ModelObject(sess)
+        model_object = ModelObject(sess, **kwargs)
     return model_object
 
 

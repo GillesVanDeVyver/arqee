@@ -115,7 +115,7 @@ def inference_img_generic(model_object, inference_input, verbose=True):
     return res_batch[0]
 
 
-def pre_process_recording_generic(recording, verbose=True):
+def pre_process_recording_generic(recording, verbose=True,nb_channels=1):
     '''
     Generic pre-processing to the correct input format before inference for recordings
     :param recording:
@@ -127,12 +127,15 @@ def pre_process_recording_generic(recording, verbose=True):
         raise ValueError(
             'Expected recording to have shape (nb_frames, channels, height, width), got: ' + str(recording.shape) +
             '.\n Please make sure to provide the recording in the correct format before running inference_recording.')
-    if recording.shape[1] != 1:
+    if recording.shape[1] != nb_channels:
         if verbose:
             warnings.warn(
-                'Warning...........: Expected recording to have 1 grayscale channel, got: ' + str(recording.shape[1]) +
+                f'Warning...........: Expected recording to have {nb_channels} channels, got: ' + str(recording.shape[1]) +
                 'channels.\n Only the first channel will be used for inference.')
         inference_input = inference_input[:, 0, :, :]
+        if nb_channels != 1:
+            # copy the first channel to the other channels
+            inference_input = np.repeat(inference_input[:, np.newaxis, :, :], nb_channels, axis=1)
     nb_frames = inference_input.shape[0]
     if inference_input.shape[2] != 256 or inference_input.shape[3] != 256:
         if verbose:
@@ -187,7 +190,11 @@ def inference_recording_generic(model_object, inference_input, verbose=True):
             progress_bar.update(model_object.batch_size)
     if verbose:
         progress_bar.close()
-    return np.concatenate(res)
+    # check if res is a numpy array
+    if isinstance(res, np.ndarray):
+        return np.concatenate(res)
+    else:
+        return res
 
 
 def load_model(model_name='mobilenetv2_regional_quality', **kwargs):
