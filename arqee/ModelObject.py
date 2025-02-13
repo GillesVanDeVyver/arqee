@@ -5,19 +5,28 @@ import os
 import onnxruntime
 from arqee import utils
 import arqee.CONST as CONST
+from skimage.transform import resize
+from arqee import utils_graphnet
+from arqee.utils_graphnet import denormalise_kpts
 
 
 class ModelObject:
-    def __init__(self, session, batch_size=32):
+    def __init__(self, session, **kwargs):
         '''
         Generic model object for onnx models
         :param session: onnxruntime.InferenceSession
             The onnx session
-        :param batch_size: int
-            The batch size to use for inference on recordings
+        :param kwargs: dict
+            Optional arguments:
+            - batch_size: int
+                The batch size to use for inference on recordings.
+                Default is 32
         '''
         self.session = session
-        self.batch_size = batch_size
+        if 'batch_size' in kwargs:
+            self.batch_size = kwargs['batch_size']
+        else:
+            self.batch_size = 32
 
     def pre_process_batch(self, inference_input, verbose=True, **kwargs):
         '''
@@ -72,25 +81,26 @@ class ModelObject:
         :param inference_output: np.array
         :return: np.array
         '''
-        nb_frames = inference_output.shape[0]
+        nb_frames = len(inference_output)
         # convert inference output to a list
-        new_inference_output = inference_output.tolist()
+        if isinstance(inference_output, np.ndarray):
+            inference_output = inference_output.tolist()
+        post_processed_output =[]
         frames_processed = 0
         if verbose:
             print("Post-processing recording inference output...")
             progress_bar = tqdm(total=nb_frames)
         else:
             progress_bar = None
-        while frames_processed < nb_frames:
-            batch_of_frames = inference_output[frames_processed:frames_processed + self.batch_size]
+        for batch_of_frames in inference_output:
             post_processed_batch = self.post_process_batch(batch_of_frames, verbose=verbose, **kwargs)
-            new_inference_output[frames_processed:frames_processed + self.batch_size] = post_processed_batch
+            post_processed_output.extend(post_processed_batch)
             frames_processed += self.batch_size
             if verbose:
                 progress_bar.update(self.batch_size)
         if verbose:
             progress_bar.close()
-        return np.array(new_inference_output)
+        return np.array(post_processed_output)
 
     def inference_batch(self, batch_data, verbose=True, **kwargs):
         '''
@@ -198,13 +208,24 @@ class QualityModelObject(ModelObject):
 
 
 class SegmentationModelObject(ModelObject):
-    def __init__(self, session):
+    def __init__(self, session, **kwargs):
         '''
         Model object containing the onnx session
         :param session: onnxruntime.InferenceSession
             The onnx session
+        :param kwargs: dict
+            Optional arguments:
+            - WMA_widnow: int
+                The window size of the weighted moving average filter.
+                If WMA is not provided, the weighted moving average filter will not be applied.
         '''
         super().__init__(session)
+        if 'WMA_window' in kwargs:
+            self.apply_WMA = True
+            self.WMA_widnow = kwargs['WMA_window']
+        else:
+            self.apply_WMA = False
+
 
     def post_process_batch(self, inference_output, verbose=True, **kwargs):
         '''
@@ -216,8 +237,185 @@ class SegmentationModelObject(ModelObject):
         :return: np.array
             Post processed inference output as np.array with shape (batch_size, width, height)
         '''
-        return np.argmax(inference_output, axis=1).astype(np.uint8)
+        if self.apply_WMA:
+            inference_output = utils.wma_segmentation(inference_output, self.WMA_widnow)
+        inference_output= np.argmax(inference_output, axis=1).astype(np.uint8)
+        return inference_output
 
+class GCNSegmentationModelObject(ModelObject):
+    def __init__(self, session, **kwargs):
+        '''
+        Model object containing the onnx session
+        :param session: onnxruntime.InferenceSession
+            The onnx session
+        :param kwargs: dict
+            Optional arguments:
+            - output_keypoints: bool
+                If True, the keypoints will be not be converted to a segmentation mask
+        '''
+        super().__init__(session, **kwargs)
+        if 'output_keypoints' in kwargs:
+            self.output_keypoints = kwargs['output_keypoints']
+        else:
+            self.output_keypoints = False
+
+    def pre_process_batch(self, inference_input, verbose=True, **kwargs):
+        '''
+        Pre-processing for GCN to the correct input format before inference for batches.
+        Not using the generic pre_process_batch method because the GCN uses 3 channels as input
+        and the input is scaled to [0,1]
+        :param inference_input: np.array
+            Input data as np.array of shape (batch_size, channels, height, width
+        :param verbose: bool
+            If True, warnings will be printed concerning resizing and channels
+        :return: np.array
+            Pre-processed input data as np.array of shape (batch_size, 3, 256, 256)
+        '''
+        # check if data has correct shape
+        inference_input = inference_input.copy()
+        if len(inference_input.shape) != 4:
+            raise ValueError(
+                'Expected data to have shape (batch_size, channels, 256, 256), got: ' + str(inference_input.shape) +
+                '.\n Please make sure to provide the data in the correct format before running inference_batch.')
+        if inference_input.shape[1] != 3:
+            if inference_input.shape[1] ==1:
+                print('The given data has shape: ' + str(inference_input.shape) +
+                      '.\n The data will be resized to (batch_size, 3, 256, 256) before running inference.'
+                      'The GCN uses 3 channels as input.')
+                # copy the grayscale channel 3 times to create a 3 channel image
+                inference_input = np.stack((inference_input[:,0,:,:],inference_input[:,0,:,:],inference_input[:,0,:,:]),axis=1)
+            else:
+                raise ValueError(
+                    'Expected data to have either 3 or 1 channel, got: ' + str(inference_input.shape[1]) +
+                    'channels.\n Please make sure to provide the data in the correct format before running inference_batch.')
+        if inference_input.shape[2] != 256 or inference_input.shape[3] != 256:
+            if verbose:
+                print('The given data has shape: ' + str(inference_input.shape) +
+                      '.\n The data will be resized to (batch_size, 1, 256, 256) before running inference.')
+            inference_input = resize(inference_input,
+                                     (inference_input.shape[0], inference_input.shape[1], 256, 256),
+                                     preserve_range=True)
+        # convert data to float32 and scale to [0,1]
+        inference_input = inference_input.astype(np.float32)/256
+        return inference_input
+
+    def pre_process_recording(self,recording, verbose=True):
+        '''
+        pPre-processing to the correct input format before inference for recordings
+        Not using the generic pre_process_recording method because the GCN uses 3 channels as input
+        and the input is scaled to [0,1]
+        :param recording:
+        :param verbose:
+        :return:
+        '''
+        return arqee.pre_process_recording_generic(recording, verbose=verbose, nb_channels=3)/256
+
+    def pre_process_img(self, img_data, verbose=True, **kwargs):
+        '''
+        Pre-processing to the correct input format before inference for single images.
+        Not using the generic pre_process_img method because the GCN uses 3 channels as input
+        :param img_data: np.array
+            Input data as np.array of shape (channels, height, width)
+        :param verbose: bool
+            If True, warnings will be printed concerning resizing and channels
+        :return: np.array
+            Pre-processed input data as np.array of shape (1, channels, height, width)
+        '''
+        if len(img_data.shape) != 3:
+            raise ValueError('Expected img to have shape (channels, height, width), got: ' + str(img_data.shape) +
+                             '.\n Please make sure to provide the img in the correct format before running inference_single_img.')
+        inference_input = np.expand_dims(img_data, axis=0)
+        return self.pre_process_batch(inference_input, verbose)
+
+    def inference_batch(self, inference_input, verbose=True, **kwargs):
+        '''
+        Perform inference on the given image using the given onnx session.
+        Not using the generic inference_img method because the GCN has multiple outputs
+        :param model_object: ONNXModelObject
+            The model object containing the onnx session
+            Only onnx is supported
+        :param inference_input: np.array
+            Pre-processed input data as np.array of shape (channels, height, width)
+        :param verbose: bool
+            If True, info and warnings will be printed
+        :return: np.array
+            Inference output as np.array
+        '''
+        onnx_sess = self.session
+        input_name = onnx_sess.get_inputs()[0].name
+        output_names = [output.name for output in onnx_sess.get_outputs()]
+        res = onnx_sess.run(output_names, {input_name: inference_input})
+        return res
+
+    def inference_img(self, img_data, verbose=True, **kwargs):
+        '''
+        Perform inference on the given image using the given onnx session.
+        Not using the generic inference_img method because the GCN has multiple outputs
+        :param model_object: ONNXModelObject
+            The model object containing the onnx session
+            Only onnx is supported
+        :param img_data: np.array
+            Pre-processed input data as np.array of shape (channels, height, width)
+        :param verbose: bool
+            If True, info and warnings will be printed
+        :return: np.array
+            Inference output as np.array
+        '''
+        onnx_sess = self.session
+        input_name = onnx_sess.get_inputs()[0].name
+        output_names = [output.name for output in onnx_sess.get_outputs()]
+        res = onnx_sess.run(output_names, {input_name: img_data})
+        return res
+
+    def post_process_img(self, inference_output, verbose=True, **kwargs):
+        '''
+        Perform post processing on the inference output for images.
+        Not using the generic post_process_img method because the GCN has multiple outputs and thus
+        we work with lists instead of np.arrays to avoid issues with different shapes
+        :param verbose: bool
+        :param inference_output: np.array
+        :return: np.array
+        '''
+        # add batch dimension.
+        inference_output_as_batch = [inference_output]
+        return self.post_process_batch(inference_output_as_batch, verbose=verbose, **kwargs)[0]
+
+
+    def post_process_batch(self, inference_output, verbose=True, **kwargs):
+        '''
+        Graph segmentation model specific post processing: convert keypoints to segmentation mask
+        :param verbose: bool
+        :param inference_output: np.array
+        :return: np.array
+            Post processed inference output as np.array with shape (batch_size, width, height)
+        '''
+        result = []
+        for frame_output in inference_output:
+            # process frame by frame
+            kpts_pred,displacements = frame_output
+            displacements=displacements[0]
+            # convert displacement to epicardial contour
+            kpts_lv = kpts_pred[0, :43]
+            # also included the first annulus points (0 and 42)
+            kpts_la_part1 = np.array(kpts_pred[0, 42:64, :])
+            kpts_la_part2 = np.array(kpts_pred[:, 0, :])
+            kpts_la = np.concatenate((kpts_la_part1, kpts_la_part2),0)
+            kpts_ep = utils_graphnet.distances_to_kpts_lv(kpts_lv, displacements, as_np_array=True, transpose=False)
+
+            if self.output_keypoints:
+                graph_seg_sample = [np.array(kpts_lv), np.array(kpts_la), np.array(kpts_ep)]
+                for kpts in graph_seg_sample:
+                    denormalise_kpts(kpts, (256, 256), transpose=False)
+
+                result.append(np.array(graph_seg_sample, dtype=object))
+
+            else:
+                mask_lv, mask_la, mask_ep = utils_graphnet.keypoints_to_segmentation(256, kpts_lv, kpts_la, kpts_ep)
+                graph_seg_sample = utils_graphnet.merge_masks(mask_lv, mask_la, mask_ep)
+                graph_seg_sample = graph_seg_sample.astype(np.uint8)
+                result.append(graph_seg_sample)
+        result = np.asarray(result)
+        return result
 
 
 class PixelBasedModelObject(ModelObject):
@@ -342,7 +540,7 @@ class PixelBasedModelObject(ModelObject):
         return np.array(res)
 
 
-def load_onnx_model_from_dir(model_dir):
+def load_onnx_model_from_dir(model_dir, **kwargs):
     '''
     Load the onnx model from the given model directory. Also load the slope and intercept for bias correction if
     available.
@@ -376,11 +574,13 @@ def load_onnx_model_from_dir(model_dir):
             slope_intercept_bias_correction = np.load(slope_intercept_bias_correction_loc)
         else:
             slope_intercept_bias_correction = None
-        model_object = QualityModelObject(sess, slope_intercept_bias_correction)
+        model_object = QualityModelObject(sess, slope_intercept_bias_correction, **kwargs)
     elif 'unet' in model_name:
-        model_object = SegmentationModelObject(sess)
+        model_object = SegmentationModelObject(sess, **kwargs)
+    elif 'GCN' in model_name:
+        model_object = GCNSegmentationModelObject(sess, **kwargs)
     else:
-        model_object = ModelObject(sess)
+        model_object = ModelObject(sess, **kwargs)
     return model_object
 
 

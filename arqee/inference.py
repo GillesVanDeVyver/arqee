@@ -109,15 +109,13 @@ def inference_img_generic(model_object, inference_input, verbose=True):
     :param verbose: bool
         If True, info and warnings will be printed
     :return: np.array
-        Inference output as np.array with either numerical or string labels
-        The output of the inference is a ndarray with size 1x8 with the quality labels in the following order:
-        basal_left,mid_left,apical_left,apical_right,mid_right,basal_right,annulus_left,annulus_right
+        Inference output as np.array
     '''
     res_batch = inference_batch_generic(model_object, inference_input, verbose)
     return res_batch[0]
 
 
-def pre_process_recording_generic(recording, verbose=True):
+def pre_process_recording_generic(recording, verbose=True,nb_channels=1):
     '''
     Generic pre-processing to the correct input format before inference for recordings
     :param recording:
@@ -129,12 +127,15 @@ def pre_process_recording_generic(recording, verbose=True):
         raise ValueError(
             'Expected recording to have shape (nb_frames, channels, height, width), got: ' + str(recording.shape) +
             '.\n Please make sure to provide the recording in the correct format before running inference_recording.')
-    if recording.shape[1] != 1:
+    if recording.shape[1] != nb_channels:
         if verbose:
             warnings.warn(
-                'Warning...........: Expected recording to have 1 grayscale channel, got: ' + str(recording.shape[1]) +
+                f'Warning...........: Expected recording to have {nb_channels} channels, got: ' + str(recording.shape[1]) +
                 'channels.\n Only the first channel will be used for inference.')
         inference_input = inference_input[:, 0, :, :]
+        if nb_channels != 1:
+            # copy the first channel to the other channels
+            inference_input = np.repeat(inference_input[:, np.newaxis, :, :], nb_channels, axis=1)
     nb_frames = inference_input.shape[0]
     if inference_input.shape[2] != 256 or inference_input.shape[3] != 256:
         if verbose:
@@ -183,16 +184,23 @@ def inference_recording_generic(model_object, inference_input, verbose=True):
     else:
         progress_bar = None
     while i < inference_input.shape[0]:
-        res.append(model_object.inference_batch(inference_input[i:i + model_object.batch_size]))
+        batch_output = model_object.inference_batch(inference_input[i:i + model_object.batch_size])
+        if model_object.batch_size == 1:
+            batch_output = [batch_output]
+        res.append(batch_output)
         i += model_object.batch_size
         if verbose:
             progress_bar.update(model_object.batch_size)
     if verbose:
         progress_bar.close()
-    return np.concatenate(res)
+    # check if res is a numpy array
+    if isinstance(res, np.ndarray):
+        return np.concatenate(res)
+    else:
+        return res
 
 
-def load_model(model_name='mobilenetv2_regional_quality'):
+def load_model(model_name='mobilenetv2_regional_quality', **kwargs):
     '''
     Load the model with the given backbone
     :param model_name: str
@@ -208,5 +216,5 @@ def load_model(model_name='mobilenetv2_regional_quality'):
             raise ValueError('Model directory does not exist: ' + model_dir
                              + '\nPlease download and set up the model using download_model and set_up_model')
         else:
-            model_object = arqee.load_onnx_model_from_dir(model_dir)
+            model_object = arqee.load_onnx_model_from_dir(model_dir, **kwargs)
     return model_object
