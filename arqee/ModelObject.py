@@ -85,22 +85,22 @@ class ModelObject:
         # convert inference output to a list
         if isinstance(inference_output, np.ndarray):
             inference_output = inference_output.tolist()
+        post_processed_output =[]
         frames_processed = 0
         if verbose:
             print("Post-processing recording inference output...")
             progress_bar = tqdm(total=nb_frames)
         else:
             progress_bar = None
-        while frames_processed < nb_frames:
-            batch_of_frames = inference_output[frames_processed:frames_processed + self.batch_size]
+        for batch_of_frames in inference_output:
             post_processed_batch = self.post_process_batch(batch_of_frames, verbose=verbose, **kwargs)
-            inference_output[frames_processed:frames_processed + self.batch_size] = post_processed_batch
+            post_processed_output.extend(post_processed_batch)
             frames_processed += self.batch_size
             if verbose:
                 progress_bar.update(self.batch_size)
         if verbose:
             progress_bar.close()
-        return np.array(inference_output)
+        return np.array(post_processed_output)
 
     def inference_batch(self, batch_data, verbose=True, **kwargs):
         '''

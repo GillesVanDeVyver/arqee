@@ -184,7 +184,10 @@ def inference_recording_generic(model_object, inference_input, verbose=True):
     else:
         progress_bar = None
     while i < inference_input.shape[0]:
-        res.append(model_object.inference_batch(inference_input[i:i + model_object.batch_size]))
+        batch_output = model_object.inference_batch(inference_input[i:i + model_object.batch_size])
+        if model_object.batch_size == 1:
+            batch_output = [batch_output]
+        res.append(batch_output)
         i += model_object.batch_size
         if verbose:
             progress_bar.update(model_object.batch_size)
