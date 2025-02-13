@@ -208,13 +208,24 @@ class QualityModelObject(ModelObject):
 
 
 class SegmentationModelObject(ModelObject):
-    def __init__(self, session):
+    def __init__(self, session, **kwargs):
         '''
         Model object containing the onnx session
         :param session: onnxruntime.InferenceSession
             The onnx session
+        :param kwargs: dict
+            Optional arguments:
+            - WMA_widnow: int
+                The window size of the weighted moving average filter.
+                If WMA is not provided, the weighted moving average filter will not be applied.
         '''
         super().__init__(session)
+        if 'WMA_window' in kwargs:
+            self.apply_WMA = True
+            self.WMA_widnow = kwargs['WMA_window']
+        else:
+            self.apply_WMA = False
+
 
     def post_process_batch(self, inference_output, verbose=True, **kwargs):
         '''
@@ -226,7 +237,10 @@ class SegmentationModelObject(ModelObject):
         :return: np.array
             Post processed inference output as np.array with shape (batch_size, width, height)
         '''
-        return np.argmax(inference_output, axis=1).astype(np.uint8)
+        if self.apply_WMA:
+            inference_output = utils.wma_segmentation(inference_output, self.WMA_widnow)
+        inference_output= np.argmax(inference_output, axis=1).astype(np.uint8)
+        return inference_output
 
 class GCNSegmentationModelObject(ModelObject):
     def __init__(self, session, **kwargs):
@@ -562,7 +576,7 @@ def load_onnx_model_from_dir(model_dir, **kwargs):
             slope_intercept_bias_correction = None
         model_object = QualityModelObject(sess, slope_intercept_bias_correction, **kwargs)
     elif 'unet' in model_name:
-        model_object = SegmentationModelObject(sess)
+        model_object = SegmentationModelObject(sess, **kwargs)
     elif 'GCN' in model_name:
         model_object = GCNSegmentationModelObject(sess, **kwargs)
     else:

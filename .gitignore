@@ -53,5 +53,5 @@ Thumbs.db
 /sample_data/
 
 *.npy
-/debug.py
+debug/
 /arqee/models

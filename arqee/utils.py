@@ -197,3 +197,52 @@ def normalize_image(img,max_pixel_value=255,mean=127.0,std_dev=32.0):
     # Apply mapping to source image
     matched_img = mapping[img]
     return matched_img
+
+
+def wma_segmentation(seg_sequence, window_size):
+    '''
+    Perform weighted moving average on the given segmentation sequence with the given window size.
+    :param seg_sequence: ndarray
+        segmentation sequence as a ndarray with shape (nb_frames, nb_classes, height, width)
+    :param window_size: int
+        window size for the moving average
+    :return: ndarray
+        smoothed segmentation sequence with shape (nb_frames, nb_classes, height, width)
+    '''
+    nb_frames,nb_classes, height, width = seg_sequence.shape
+    smoothed_sequence = np.zeros((nb_frames, nb_classes,height, width))
+
+    for i in range(nb_frames):
+        start = max(0, i - window_size)
+        end = min(nb_frames, i + window_size + 1)
+
+        # Symmetric distance-based weighting
+        distances = np.abs(np.arange(start, end) - i)  # Distance from center
+        weights = 1 / (distances + 1)  # Closer frames get higher weights
+        weights = weights / np.sum(weights)  # Normalize
+
+        smoothed_sequence[i] = np.average(seg_sequence[start:end], axis=0, weights=weights)
+
+    return smoothed_sequence
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
