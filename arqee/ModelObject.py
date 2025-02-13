@@ -398,6 +398,7 @@ class GCNSegmentationModelObject(ModelObject):
             else:
                 mask_lv, mask_la, mask_ep = utils_graphnet.keypoints_to_segmentation(256, kpts_lv, kpts_la, kpts_ep)
                 graph_seg_sample = utils_graphnet.merge_masks(mask_lv, mask_la, mask_ep)
+                graph_seg_sample = graph_seg_sample.astype(np.uint8)
                 result.append(graph_seg_sample)
         result = np.asarray(result)
         return result
