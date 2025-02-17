@@ -3,6 +3,7 @@ import arqee
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 from skimage.transform import resize
+import cv2
 
 QUALITY_COLORS = np.array([(0.929, 0.106, 0.141),  # not visible, red
                            (0.957, 0.396, 0.137),  # poor, orange
@@ -12,7 +13,8 @@ QUALITY_COLORS = np.array([(0.929, 0.106, 0.141),  # not visible, red
 QUALITY_CLASSES = ['not visible', 'poor', 'ok', 'good', 'excellent']
 
 
-def create_visualization(image, segmentation, labels=None, colors=None, remove_oos=False,eps=1e-6):
+def create_visualization(image, segmentation, labels=None, colors=None, remove_oos=False,contour=False,
+                         eps=1e-6):
     '''
     Create a visualization of the ultrasound image with the segmentation overlayed
     :param image: ndarray
@@ -30,6 +32,11 @@ def create_visualization(image, segmentation, labels=None, colors=None, remove_o
     :param remove_oos
         remove out of sector parts
         If True, parts of the segmentation outside the sector will be removed
+    :param eps: float
+        small value to avoid division by zero
+    :param contour: bool
+        If True, the contours of each region will be plotted instead of the filled regions.
+        The same colors will be used for the contours as for the filled regions.
     :return: ndarray
         the visualization of the ultrasound image with the segmentation overlayed with values in range [0,255]
     '''
@@ -64,15 +71,21 @@ def create_visualization(image, segmentation, labels=None, colors=None, remove_o
         else:
             label_semgentation = segmentation == label
 
-        if colors[i, 0] != 0:
-            result[label_semgentation, 0] = np.clip(colors[i, 0] * (0.35 +
-                                                                    result[label_semgentation, 0]), 0.0, 1.0)
-        if colors[i, 1] != 0:
-            result[label_semgentation, 1] = np.clip(colors[i, 1] * (0.35 +
-                                                                    result[label_semgentation, 1]), 0.0, 1.0)
-        if colors[i, 2] != 0:
-            result[label_semgentation, 2] = np.clip(colors[i, 2] * (0.35 +
-                                                                    result[label_semgentation, 2]), 0.0, 1.0)
+        if contour:
+            label_semgentation = label_semgentation.astype(np.uint8)
+            contours, _ = cv2.findContours(label_semgentation, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(result, contours, -1, colors[i], 1)
+
+        else:
+            if colors[i, 0] != 0:
+                result[label_semgentation, 0] = np.clip(colors[i, 0] * (0.35 +
+                                                                        result[label_semgentation, 0]), 0.0, 1.0)
+            if colors[i, 1] != 0:
+                result[label_semgentation, 1] = np.clip(colors[i, 1] * (0.35 +
+                                                                        result[label_semgentation, 1]), 0.0, 1.0)
+            if colors[i, 2] != 0:
+                result[label_semgentation, 2] = np.clip(colors[i, 2] * (0.35 +
+                                                                        result[label_semgentation, 2]), 0.0, 1.0)
     if remove_oos:
         result[oos_mask] = 0 # set out of sector parts to black
     return (result * 255).astype(np.uint8)
