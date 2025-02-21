@@ -91,7 +91,8 @@ def create_visualization(image, segmentation, labels=None, colors=None, remove_o
     return (result * 255).astype(np.uint8)
 
 
-def create_visualization_quality(image, segmentation, quality_labels, seg_labels=None, remove_oos=True):
+def create_visualization_quality(image, segmentation, quality_labels, seg_labels=None, remove_oos=True,
+                                 cmap='gray'):
     '''
     Create a visualization of the ultrasound image with the segmentation overlayed
     The colors of the regions is determined by the quality labels
@@ -108,6 +109,8 @@ def create_visualization_quality(image, segmentation, quality_labels, seg_labels
     :param remove_oos
         remove out of sector parts
         If True, parts of the segmentation outside the sector will be removed
+    :param cmap: str
+        the colormap to use for the grayscale image
     :return: ndarray
         the visualization of the ultrasound image with the segmentation overlayed with values in range [0,255]
     '''
@@ -172,7 +175,7 @@ def plot_visual_results_img(image, segmentation, quality_labels, seg_labels=None
     fig, ax = plt.subplots(1, 2, figsize=(14, 6))
 
     # Plot original image
-    ax[0].imshow(image, cmap='gray')
+    ax[0].imshow(image, cmap=cmap)
     ax[0].set_title('Input B-Mode image')
     ax[0].axis('off')  # Turn off axis for original image
 
@@ -185,10 +188,10 @@ def plot_visual_results_img(image, segmentation, quality_labels, seg_labels=None
     fig.subplots_adjust(right=0.85)  # Adjust the position of the color bar
 
     # Create a color bar with custom colors and labels
-    cmap = ListedColormap(QUALITY_COLORS)
+    cmap_quality = ListedColormap(QUALITY_COLORS)
     bounds = range(len(QUALITY_COLORS) + 1)
     norm = plt.Normalize(bounds[0], bounds[-1])
-    cb = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, ticks=np.arange(len(QUALITY_COLORS)) + 0.5)
+    cb = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap_quality), ax=ax, ticks=np.arange(len(QUALITY_COLORS)) + 0.5)
     cb.ax.set_yticklabels(QUALITY_CLASSES)
 
     return fig, ax, visuzalization_quality
