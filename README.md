@@ -1,4 +1,4 @@
-# Regional Image Quality Scoring for 2-D Echocardiography Using Deep Learning
+# Automatic Regional Quality Estimation for Echocardiography (arqee) 
 
 ![tutorial/image_quality_prediction.gif](tutorial/image_quality_prediction.gif)
 
