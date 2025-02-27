@@ -1,9 +1,13 @@
-# Automatic Regional Quality Estimation for Echocardiography (arqee)
+# Regional Image Quality Scoring for 2-D Echocardiography Using Deep Learning
 
-## Citation
+
+
+## Publication & Citation
 You should cite the following paper when using the code in this repository:
 
-Van De Vyver, Gilles, et al. "Regional quality estimation for echocardiography using deep learning." arXiv preprint arXiv:2408.00591 (2024). https://arxiv.org/abs/2408.00591
+Van De Vyver, Gilles, et al. "Regional Image Quality Scoring for 2-D Echocardiography Using Deep Learning." Ultrasound in Medicine & Biology (2025). https://www.sciencedirect.com/science/article/pii/S0301562924004691
+
+Blog post: [https://gillesvandevyver.com/#/projects/finding-hearts](https://gillesvandevyver.com/#/projects/finding-hearts)
 
 
 ## Toturial
@@ -31,6 +35,20 @@ pip install .
 ![tutorial/image_quality_prediction.gif](tutorial/image_quality_prediction.gif)
 
 
+
+## Awards
+
+The paper is on the cover page of its issue in the Ultrasound in Medicine & Biology (UMB) journal.
+
+![cover_page_umb.jpg](pictures/cover_page_umb.jpg)
+
+
+The work was presented at the 
+MICCAI (Medical Image Computing and Computer Assisted Intervention) 2024 conference as a poster,
+where it was awarded the runner-up prize for best poster in the
+ASMUS (Advances in Simplifying Medical Ultrasound) workshop.
+
+![miccai_poster_award.png](pictures/miccai_poster_award.png)
 
 ## Contact
 
