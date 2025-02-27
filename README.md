@@ -1,5 +1,6 @@
 # Regional Image Quality Scoring for 2-D Echocardiography Using Deep Learning
 
+![tutorial/image_quality_prediction.gif](tutorial/image_quality_prediction.gif)
 
 
 ## Publication & Citation
@@ -15,7 +16,7 @@ Jupyter notebook toturials are available at
 
 - End to end quality prediction: [tutorial/tutorial_end_to_end_quality_prediction.ipynb](tutorial/tutorial_end_to_end_quality_prediction.ipynb).
 
-- Combine gCNR with segmentation: [tutorial/tutorial_gcnr.ipynb](tutorial/tutorial_gcnr.ipynb)
+- Combine generalized contrast to noise ratio (gCNR) with segmentation: [tutorial/tutorial_gcnr.ipynb](tutorial/tutorial_gcnr.ipynb)
 
 ## Installation
 The package can be installed using pip from github:
@@ -26,14 +27,6 @@ Alternatively, you can download the source code and install it using pip:
 ```bash
 pip install .
 ```
-
-## Main features
-
-- Calculate quality per myocardial region for apical views via end to end (black-box) model
-- Get quality measure based on gCNR per myocardial region for apical views
-
-![tutorial/image_quality_prediction.gif](tutorial/image_quality_prediction.gif)
-
 
 
 ## Awards
