@@ -181,14 +181,20 @@ def get_region_contour(start_index, end_index, myo_contour, contour_lv,
     return division_contour, myo_end_index, myo_point_end
 
 
-def find_apex(contour, base_mid):
+def find_apex(contour, base_mid, **kwargs):
     '''
-    Find the apex point on the endocardium.
+    Find the apex point on the contour.
     More precisely, the apex is defined as the point the furthest from the midpoint
     :param contour: ndarray
         numpy array of shape (n,2) containing the coordinates of the left ventricle boundary or myocardium contour
     :param base_mid: ndarray
         numpy array of shape (2,) containing the coordinates of middle of the base
+    :param kwargs: dict, optional
+        find_apex_version: str, optional
+            version of the algorithm to use. Default is '2'. Possible values are '1' and '2'
+            - If '1', the apex is the point with the highest distance from the baseMid
+            - If '2', the algorithm will do additional processing to make sure the apex is in the middle of the
+                apex region
     :return: tuple
         returns (apex,apex_index), where
         - apex: ndarray
@@ -196,13 +202,43 @@ def find_apex(contour, base_mid):
         - apex_index: int
             index of the apex in the LV_boundary
     '''
-    # Find apex point on the endocardium, as point with highest distance from baseMid
+    # Find apex point on the contour, as point with highest distance from baseMid
     distances = []
     for point in contour:
         distances.append((np.linalg.norm(base_mid - point)))
     # Get point with highest distance from baseMid
-    apex_index = np.argmax(distances)
-    apex = np.copy(contour[apex_index])
+    version = kwargs.get('find_apex_version', '2')
+    if version == '1':
+        apex_index = np.argmax(distances)
+        apex = np.copy(contour[apex_index])
+    elif version == '2':
+        apex_threshold = 0.97
+        while True:
+            # Get all the points on the contour which can be good candidates for apex (far enough)
+            distances_to_apex = np.array(distances)
+            apex_candidate_indexes = np.where(distances >= (apex_threshold * np.max(distances_to_apex)), 1, 0)
+            # Find the transitions between points that are apex candidates and not
+            apex_candidate_index_limits = np.argwhere(np.abs(np.diff(apex_candidate_indexes)) == 1)
+            if len(apex_candidate_index_limits) == 2:
+                apex_candidate_index_start = np.argwhere(np.diff(apex_candidate_indexes) == 1)[0][0]
+                apex_candidate_index_end = np.argwhere(np.diff(apex_candidate_indexes) == -1)[0][
+                                               0] + 1  # Add 1 to retablish dissymetry caused by np.diff
+
+                # Place true apex. This is the point in the middle of the apex region
+                if apex_candidate_index_start > apex_candidate_index_end:
+                    apex_index = int(round(
+                        ((apex_candidate_index_end + len(distances) + apex_candidate_index_start) / 2)
+                        % len(distances),0))
+                else:
+                    apex_index = int(round((apex_candidate_index_end + apex_candidate_index_start) / 2, 0))
+                apex = contour[apex_index]
+                break
+            else:
+                # Two segments on the LV contour are detected to be candidated to be apex
+                # Reduce the threshold until getting a single segment
+                apex_threshold -= 0.02
+    else:
+        raise NotImplementedError(f'Only versions 1 and 2 are implemented for find_apex. Provided version: {version}')
     return apex, apex_index
 
 
@@ -249,8 +285,9 @@ def find_endo_apex(lv_mask, baseMid, epi_apex):
     # Find apex point on the epicardium, as intersection of the long axis (Apex-BaseMid) and the endocadrial border
     # Get the direction of the line
     direction = np.array([epi_apex[0] - baseMid[0], epi_apex[1] - baseMid[1]])
-    # normalize the direction
-    direction = direction / direction[0]
+    # normalize the direction such that it has a length of 1
+    direction_length = np.linalg.norm(direction)
+    direction = direction / direction_length
     for depth in range(0, epi_apex[1]):
         point = (epi_apex + direction * depth).astype(int)
         if lv_mask[point[1], point[0]] > 0.5:
@@ -259,7 +296,7 @@ def find_endo_apex(lv_mask, baseMid, epi_apex):
 
 
 
-def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label, lv_label):
+def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label, lv_label, **kwargs):
     '''
     Find the base points and the apex of the left ventricle in a given segmentation
     :param segmentation: ndarray
@@ -340,7 +377,7 @@ def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label,
     base_mid_la = la_boundary[int(len(la_boundary) / 2)]
     lv_mask = segmentation == lv_label
     # First, find the apex on the epicaardium, defined as the point the furthest from base_mid_la
-    epi_apex, epi_apex_index = find_apex(contour_myo, base_mid_la)
+    epi_apex, epi_apex_index = find_apex(contour_myo, base_mid_la, **kwargs)
     # Then, find the apex on the endocardium, defined as the first point on the line through the epi_apex and
     # the baseMid still inside the LV mask
     endo_apex = find_endo_apex(lv_mask, base_mid_la, epi_apex)
@@ -483,7 +520,7 @@ def divide_segmentation(segmentation,**kwargs):
 
     # STEP 1: Find landmarks of myocardium
     landmarks, landmark_indices = \
-        find_lv_landmarks(segmentation, contour_lv, outer_myo_contour, la_label, ao_label, lv_label)
+        find_lv_landmarks(segmentation, contour_lv, outer_myo_contour, la_label, ao_label, lv_label, **kwargs)
     (base_sep, base_lat, apex, epi_apex) = landmarks
     (base_sep_index, base_lat_index, apex_index, epi_apex_index) = landmark_indices
 
