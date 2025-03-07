@@ -569,72 +569,120 @@ def divide_segmentation_recording(segmentations,**kwargs):
     lv_contours = []
     base_points = []
 
+    # Initialize the last valid points and indices.
+    # These are used as fallbacks when key points can not be found, which usually happens when the segmentation is not
+    # correct. In this case, the last valid points are used instead.
+    last_valid_apex = ((0,0),0)
+    last_valid_epi_apex = ((0,0),0)
+    last_valid_base_sep = ((0,0),0)
+    last_valid_base_lat = ((0,0),0)
+
+    last_valid_endo_apical_mid_left_point = ((0,0),0)
+    last_valid_epi_apical_mid_left_point = ((0,0),0)
+    last_valid_endo_mid_basal_left_point = ((0,0),0)
+    last_valid_epi_mid_basal_left_point = ((0,0),0)
+    last_valid_endo_apical_mid_right_point = ((0,0),0)
+    last_valid_epi_apical_mid_right_point = ((0,0),0)
+    last_valid_endo_mid_basal_right_point = ((0,0),0)
+    last_valid_epi_mid_basal_right_point = ((0,0),0)
+
     for segmentation in segmentations:
+        try:
 
-        # STEP 0 : get contours
-        # Get the contours of the left ventricle in counterclockwise order starting near the apex
-        contour_lv = get_contour(segmentation, lv_label, start_near_top=True)
-        lv_contours.append(contour_lv)
-        # Get the outer contour of the myocardium in counterclockwise order starting near the apex
-        # We get the outer border by merging the lv and myocardium masks
-        outer_myo_contour = get_contour(segmentation, (myo_label, lv_label), start_near_top=True)
-        outer_myo_contours.append(outer_myo_contour)
+            # STEP 0 : get contours
+            # Get the contours of the left ventricle in counterclockwise order starting near the apex
+            contour_lv = get_contour(segmentation, lv_label, start_near_top=True)
+            lv_contours.append(contour_lv)
+            # Get the outer contour of the myocardium in counterclockwise order starting near the apex
+            # We get the outer border by merging the lv and myocardium masks
+            outer_myo_contour = get_contour(segmentation, (myo_label, lv_label), start_near_top=True)
+            outer_myo_contours.append(outer_myo_contour)
 
-        # STEP 1: Find landmarks of myocardium
-        landmarks, landmark_indices = \
-            find_lv_landmarks(segmentation, contour_lv, outer_myo_contour, la_label, ao_label, lv_label, **kwargs)
-        (base_sep, base_lat, apex, epi_apex) = landmarks
-        (base_sep_index, base_lat_index, apex_index, epi_apex_index) = landmark_indices
+            # STEP 1: Find landmarks of myocardium
+            landmarks, landmark_indices = \
+                find_lv_landmarks(segmentation, contour_lv, outer_myo_contour, la_label, ao_label, lv_label, **kwargs)
+            (base_sep, base_lat, apex, epi_apex) = landmarks
+            (base_sep_index, base_lat_index, apex_index, epi_apex_index) = landmark_indices
+
+            last_valid_apex = ((apex, apex_index))
+            last_valid_epi_apex = ((epi_apex, epi_apex_index))
+            last_valid_base_sep = ((base_sep, base_sep_index))
+            last_valid_base_lat = ((base_lat, base_lat_index))
 
 
-        # STEP 2: divide endocardium contour into left and right parts, each splitted into 3 parts
-        # the contour starts at the top near the apex, so the apex is either somewhere at the start or somewhere at the end
-        apex_at_end = False
-        if apex_index > base_sep_index:
-            apex_at_end = True
-        # left
-        if apex_at_end:
-            left_indices_part1 = np.arange(apex_index, len(contour_lv))
-            left_indices_part2 = np.arange(0, base_sep_index)
-            left_indices = np.concatenate((left_indices_part1, left_indices_part2))
-        else:
-            left_indices = np.arange(apex_index, base_sep_index)
-        # divide left part into three equal parts
-        divided_left_indices = np.array_split(left_indices, 3)
-        # right
-        if apex_at_end:
-            right_indices = np.arange(base_lat_index, apex_index)
-        else:
-            right_indices_part1 = np.arange(base_lat_index, len(contour_lv))
-            right_indices_part2 = np.arange(0, apex_index)
-            right_indices = np.concatenate((right_indices_part1, right_indices_part2))
-        # divide right part into three equal parts
-        divided_right_indices = np.array_split(right_indices, 3)
+            # STEP 2: divide endocardium contour into left and right parts, each splitted into 3 parts
+            # the contour starts at the top near the apex, so the apex is either somewhere at the start or somewhere at the end
+            apex_at_end = False
+            if apex_index > base_sep_index:
+                apex_at_end = True
+            # left
+            if apex_at_end:
+                left_indices_part1 = np.arange(apex_index, len(contour_lv))
+                left_indices_part2 = np.arange(0, base_sep_index)
+                left_indices = np.concatenate((left_indices_part1, left_indices_part2))
+            else:
+                left_indices = np.arange(apex_index, base_sep_index)
+            # divide left part into three equal parts
+            divided_left_indices = np.array_split(left_indices, 3)
+            # right
+            if apex_at_end:
+                right_indices = np.arange(base_lat_index, apex_index)
+            else:
+                right_indices_part1 = np.arange(base_lat_index, len(contour_lv))
+                right_indices_part2 = np.arange(0, apex_index)
+                right_indices = np.concatenate((right_indices_part1, right_indices_part2))
+            # divide right part into three equal parts
+            divided_right_indices = np.array_split(right_indices, 3)
 
-        # STEP 3: Get the corresponding key points on the epicardium.
-        # these are the points on the myocardium contour closest to the start and end points of the endocardium contour
+            # STEP 3: Get the corresponding key points on the epicardium.
+            # these are the points on the myocardium contour closest to the start and end points of the endocardium contour
 
-        # left
-        endo_apical_mid_left_point_idx = divided_left_indices[0][-1]
-        endo_apical_mid_left_point = contour_lv[endo_apical_mid_left_point_idx]
-        epi_apical_mid_left_point_idx ,epi_apical_mid_left_point=\
-            get_closest_point(endo_apical_mid_left_point, outer_myo_contour)
+            # left
+            endo_apical_mid_left_point_idx = divided_left_indices[0][-1]
+            endo_apical_mid_left_point = contour_lv[endo_apical_mid_left_point_idx]
+            epi_apical_mid_left_point_idx ,epi_apical_mid_left_point=\
+                get_closest_point(endo_apical_mid_left_point, outer_myo_contour)
+            last_valid_endo_apical_mid_left_point = ((endo_apical_mid_left_point, endo_apical_mid_left_point_idx))
+            last_valid_epi_apical_mid_left_point = ((epi_apical_mid_left_point, epi_apical_mid_left_point_idx))
 
-        endo_mid_basal_left_point_idx = divided_left_indices[1][-1]
-        endo_mid_basal_left_point = contour_lv[endo_mid_basal_left_point_idx]
-        epi_mid_basal_left_point_idx,epi_mid_basal_left_point =\
-            get_closest_point(endo_mid_basal_left_point, outer_myo_contour)
+            endo_mid_basal_left_point_idx = divided_left_indices[1][-1]
+            endo_mid_basal_left_point = contour_lv[endo_mid_basal_left_point_idx]
+            epi_mid_basal_left_point_idx,epi_mid_basal_left_point =\
+                get_closest_point(endo_mid_basal_left_point, outer_myo_contour)
+            last_valid_endo_mid_basal_left_point = ((endo_mid_basal_left_point, endo_mid_basal_left_point_idx))
+            last_valid_epi_mid_basal_left_point = ((epi_mid_basal_left_point, epi_mid_basal_left_point_idx))
 
-        # right
-        endo_apical_mid_right_point_idx = divided_right_indices[1][-1]
-        endo_apical_mid_right_point = contour_lv[endo_apical_mid_right_point_idx]
-        epi_apical_mid_right_point_idx,epi_apical_mid_right_point =\
-            get_closest_point(endo_apical_mid_right_point, outer_myo_contour)
+            # right
+            endo_apical_mid_right_point_idx = divided_right_indices[1][-1]
+            endo_apical_mid_right_point = contour_lv[endo_apical_mid_right_point_idx]
+            epi_apical_mid_right_point_idx,epi_apical_mid_right_point =\
+                get_closest_point(endo_apical_mid_right_point, outer_myo_contour)
+            last_valid_endo_apical_mid_right_point = ((endo_apical_mid_right_point, endo_apical_mid_right_point_idx))
+            last_valid_epi_apical_mid_right_point = ((epi_apical_mid_right_point, epi_apical_mid_right_point_idx))
 
-        endo_mid_basal_right_point_idx = divided_right_indices[0][-1]
-        endo_mid_basal_right_point = contour_lv[endo_mid_basal_right_point_idx]
-        epi_mid_basal_right_point_idx,epi_mid_basal_right_point =\
-            get_closest_point(endo_mid_basal_right_point, outer_myo_contour)
+            endo_mid_basal_right_point_idx = divided_right_indices[0][-1]
+            endo_mid_basal_right_point = contour_lv[endo_mid_basal_right_point_idx]
+            epi_mid_basal_right_point_idx,epi_mid_basal_right_point =\
+                get_closest_point(endo_mid_basal_right_point, outer_myo_contour)
+            last_valid_endo_mid_basal_right_point = ((endo_mid_basal_right_point, endo_mid_basal_right_point_idx))
+            last_valid_epi_mid_basal_right_point = ((epi_mid_basal_right_point, epi_mid_basal_right_point_idx))
+
+        except:
+            # revert to last valid key points found
+            apex, apex_index = last_valid_apex
+            epi_apex, epi_apex_index = last_valid_epi_apex
+            base_sep, base_sep_index = last_valid_base_sep
+            base_lat, base_lat_index = last_valid_base_lat
+            endo_apical_mid_left_point, endo_apical_mid_left_point_idx = last_valid_endo_apical_mid_left_point
+            epi_apical_mid_left_point, epi_apical_mid_left_point_idx = last_valid_epi_apical_mid_left_point
+            endo_mid_basal_left_point, endo_mid_basal_left_point_idx = last_valid_endo_mid_basal_left_point
+            epi_mid_basal_left_point, epi_mid_basal_left_point_idx = last_valid_epi_mid_basal_left_point
+            endo_apical_mid_right_point, endo_apical_mid_right_point_idx = last_valid_endo_apical_mid_right_point
+            epi_apical_mid_right_point, epi_apical_mid_right_point_idx = last_valid_epi_apical_mid_right_point
+            endo_mid_basal_right_point, endo_mid_basal_right_point_idx = last_valid_endo_mid_basal_right_point
+            epi_mid_basal_right_point, epi_mid_basal_right_point_idx = last_valid_epi_mid_basal_right_point
+
+
 
         key_points.append(((apex, apex_index),
                            (epi_apex, epi_apex_index),
