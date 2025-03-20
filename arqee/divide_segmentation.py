@@ -680,6 +680,9 @@ def divide_segmentation_recording(segmentations,**kwargs):
             last_valid_endo_apical_mid_right_point = ((endo_apical_mid_right_point, endo_apical_mid_right_point_idx))
             last_valid_epi_apical_mid_right_point = ((epi_apical_mid_right_point, epi_apical_mid_right_point_idx))
 
+            last_valid_myo_contour = outer_myo_contour
+            last_valid_lv_contour = contour_lv
+
         except:
             # revert to last valid key points found
             apex, apex_index = last_valid_apex
