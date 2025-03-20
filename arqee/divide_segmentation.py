@@ -574,19 +574,23 @@ def divide_segmentation_recording(segmentations,**kwargs):
     # Initialize the last valid points and indices.
     # These are used as fallbacks when key points can not be found, which usually happens when the segmentation is not
     # correct. In this case, the last valid points are used instead.
-    last_valid_apex = ((0,0),0)
-    last_valid_epi_apex = ((0,0),0)
-    last_valid_base_sep = ((0,0),0)
-    last_valid_base_lat = ((0,0),0)
+    mid_point = (segmentations.shape[2] // 2, segmentations.shape[1] // 2)
 
-    last_valid_endo_apical_mid_left_point = ((0,0),0)
-    last_valid_epi_apical_mid_left_point = ((0,0),0)
-    last_valid_endo_mid_basal_left_point = ((0,0),0)
-    last_valid_epi_mid_basal_left_point = ((0,0),0)
-    last_valid_endo_apical_mid_right_point = ((0,0),0)
-    last_valid_epi_apical_mid_right_point = ((0,0),0)
-    last_valid_endo_mid_basal_right_point = ((0,0),0)
-    last_valid_epi_mid_basal_right_point = ((0,0),0)
+    last_valid_apex = (mid_point,0)
+    last_valid_epi_apex = (mid_point,0)
+    last_valid_base_sep = (mid_point,0)
+    last_valid_base_lat = (mid_point,0)
+
+    last_valid_endo_apical_mid_left_point = (mid_point,0)
+    last_valid_epi_apical_mid_left_point = (mid_point,0)
+    last_valid_endo_mid_basal_left_point = (mid_point,0)
+    last_valid_epi_mid_basal_left_point = (mid_point,0)
+    last_valid_endo_apical_mid_right_point = (mid_point,0)
+    last_valid_epi_apical_mid_right_point = (mid_point,0)
+    last_valid_endo_mid_basal_right_point = (mid_point,0)
+    last_valid_epi_mid_basal_right_point = (mid_point,0)
+    last_valid_myo_contour = np.array([mid_point])
+    last_valid_lv_contour = np.array([mid_point])
 
     for segmentation in segmentations:
         try:
@@ -594,11 +598,9 @@ def divide_segmentation_recording(segmentations,**kwargs):
             # STEP 0 : get contours
             # Get the contours of the left ventricle in counterclockwise order starting near the apex
             contour_lv = get_contour(segmentation, lv_label, start_near_top=True)
-            lv_contours.append(contour_lv)
             # Get the outer contour of the myocardium in counterclockwise order starting near the apex
             # We get the outer border by merging the lv and myocardium masks
             outer_myo_contour = get_contour(segmentation, (myo_label, lv_label), start_near_top=True)
-            outer_myo_contours.append(outer_myo_contour)
 
             # STEP 1: Find landmarks of myocardium
             landmarks, landmark_indices = \
@@ -683,6 +685,8 @@ def divide_segmentation_recording(segmentations,**kwargs):
             epi_apical_mid_right_point, epi_apical_mid_right_point_idx = last_valid_epi_apical_mid_right_point
             endo_mid_basal_right_point, endo_mid_basal_right_point_idx = last_valid_endo_mid_basal_right_point
             epi_mid_basal_right_point, epi_mid_basal_right_point_idx = last_valid_epi_mid_basal_right_point
+            outer_myo_contour = last_valid_myo_contour
+            contour_lv = last_valid_lv_contour
 
 
 
@@ -698,6 +702,8 @@ def divide_segmentation_recording(segmentations,**kwargs):
                            (epi_mid_basal_right_point, epi_mid_basal_right_point_idx)))
         base_points.append(((base_sep, base_sep_index),
                             (base_lat, base_lat_index)))
+        outer_myo_contours.append(outer_myo_contour)
+        lv_contours.append(contour_lv)
 
     # STEP 4: Smooth the key points throughout the frames using weighted moving average
     nb_frames = segmentations.shape[0]
