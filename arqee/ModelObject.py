@@ -566,7 +566,7 @@ def load_onnx_model_from_dir(model_dir, **kwargs):
         raise ValueError('No ONNX model found in model directory: ' + model_dir)
     onnx_model_loc = os.path.join(model_dir, 'model.onnx')
 
-    sess = onnxruntime.InferenceSession(onnx_model_loc, None)
+    sess = onnxruntime.InferenceSession(onnx_model_loc, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
     model_name = os.path.basename(model_dir)
     if 'regional_quality' in model_name:
         slope_intercept_bias_correction_loc = os.path.join(model_dir, 'slope_intercept_bias_correction.npy')
