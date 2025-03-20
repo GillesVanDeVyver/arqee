@@ -147,6 +147,8 @@ def get_region_contour(start_index, end_index, myo_contour, contour_lv,
         if lv_index == -1:
             lv_index = len(contour_lv) - 1
     division_contour = lv_boundary_part
+    if len(division_contour) == 0:
+        division_contour = np.array([lv_start_point])
     # 2) the second part is a straight line from the end point on the endocardium border to the start point on the
     #    epicardium border
     # get the corresponding point of the start endocardium point on the myocardium contour if not given
