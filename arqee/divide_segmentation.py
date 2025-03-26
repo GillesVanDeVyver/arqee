@@ -298,8 +298,7 @@ def find_endo_apex(lv_mask, baseMid, epi_apex):
 
 
 
-def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label, lv_label, background_label=0,
-                      **kwargs):
+def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label, lv_label, background_label=0, **kwargs):
     '''
     Find the base points and the apex of the left ventricle in a given segmentation
     :param segmentation: ndarray
@@ -350,6 +349,7 @@ def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label,
     la_boundary = []
     base_indices = []
     index = 0
+    strict_base = kwargs.get('strict_base', False)
     for point in contour_lv:
         x = int(round(point[0]))
         y = int(round(point[1]))
@@ -363,10 +363,16 @@ def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label,
                 break
             else:
                 pixel_label = segmentation[y + offset, x]
-                condition = pixel_label == la_label or pixel_label == ao_label or pixel_label == background_label
+                if strict_base:
+                    condition = pixel_label == la_label or pixel_label == ao_label
+                else:
+                    condition = pixel_label == la_label or pixel_label == ao_label or pixel_label == background_label
                 if condition:
-                    if pixel_label == la_label:
+                    if not strict_base:
                         la_boundary.append(np.array([x, y]))
+                    else:
+                        if pixel_label == la_label:
+                            la_boundary.append(np.array([x, y]))
                     # Atrium
                     base_boundary.append(np.array([x, y]))
                     base_indices.append(index)
@@ -554,6 +560,9 @@ def divide_segmentation_recording(segmentations,**kwargs):
         Addtionally, if include_lv_lumen is True, the left ventricle lumen is included, so n_classes = 7 or 9 with
         and without annulus, respectively.
     '''
+    if len(segmentations.shape) == 4:
+        # convert one-hot to categorical
+        segmentations = np.argmax(segmentations, axis=1).astype(np.uint8)
     if segmentations.dtype != np.uint8:
         raise ValueError('Input segmentation has to be in categorial (integer) format')
     new_labels=kwargs.get('new_labels', [0, 1, 2, 3, 4, 5, 6, 7])
@@ -564,9 +573,7 @@ def divide_segmentation_recording(segmentations,**kwargs):
     include_annulus=kwargs.get('include_annulus', True)
     annulus_area_radius=kwargs.get('annulus_area_radius', 10)
     include_lv_lumen=kwargs.get('include_lv_lumen', False)
-    if len(segmentations.shape) == 4:
-        # convert one-hot to categorical
-        segmentations = np.argmax(segmentations, axis=1).astype(np.uint8)
+
 
 
     key_points = []
