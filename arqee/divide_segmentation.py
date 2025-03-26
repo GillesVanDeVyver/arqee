@@ -298,7 +298,8 @@ def find_endo_apex(lv_mask, baseMid, epi_apex):
 
 
 
-def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label, lv_label, **kwargs):
+def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label, lv_label, background_label=0,
+                      **kwargs):
     '''
     Find the base points and the apex of the left ventricle in a given segmentation
     :param segmentation: ndarray
@@ -315,6 +316,8 @@ def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label,
         label of the aorta in the segmentation
     :param lv_label: int
         label of the left ventricle in the segmentation
+    :param background_label: int, optional
+        label of the background in the segmentation, default is 0
     :return: tuple
          return (landmarks,landmark_indices),
          where
@@ -360,7 +363,7 @@ def find_lv_landmarks(segmentation, contour_lv, contour_myo, la_label, ao_label,
                 break
             else:
                 pixel_label = segmentation[y + offset, x]
-                condition = pixel_label == la_label or pixel_label == ao_label
+                condition = pixel_label == la_label or pixel_label == ao_label or pixel_label == background_label
                 if condition:
                     if pixel_label == la_label:
                         la_boundary.append(np.array([x, y]))
