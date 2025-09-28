@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "arqee"
-version = "1.0.2"
+version = "1.0.3"
 description = ""
 authors = ["Gilles Van De Vyver <gillesvandevyver@hotmail.be>"]
 readme = "README.md"

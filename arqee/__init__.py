@@ -1,4 +1,4 @@
-__version__ = '0.1.1'
+__version__ = '1.0.3'
 
 from arqee.inference import (load_model, apply_linear_model,
                              pre_process_batch_generic, pre_process_img_generic, pre_process_recording_generic,
