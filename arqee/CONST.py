@@ -9,7 +9,8 @@ DOWNLOAD_LINKS = {
     "nnunet_hunt4_alax": ("gillesvdv/nnunet_hunt4_alax","nnunet_hunt4_alax.zip"),
     "nnunet_hunt4_a2c_a4c" : ("gillesvdv/nnunet_hunt4_a2c_a4c","nnunet_hunt4_a2c_a4c.zip"),
     "nnunet_camus": ("gillesvdv/nnunet_CAMUS_onnx","nnunet_camus.zip"),
-    "GCN_camus_cv1": ("gillesvdv/GCN_camus_cv1", "GCN_camus_cv1.zip")
+    "GCN_camus_cv1": ("gillesvdv/GCN_camus_cv1", "GCN_camus_cv1.zip"),
+    "nnunet_hunt4_alax_genaug": ("gillesvdv/nnunet_hunt4_alax_genaug","nnunet_hunt4_alax_genaug.zip")
 }
 
 DEFAULT_SLOPE_INTERCEPTS_PIXEL_BASED_METHODS = {
